@@ -1,6 +1,8 @@
-[![MIT License][license-shield]][license-url]
+![ERC721RA](https://raw.githubusercontent.com/rarilabs/ERC721RA/main/assets/erc721ra-banner.png)
 
 # ERC721RA - refundable and gas optimized NFT
+
+![ERC721RA](https://raw.githubusercontent.com/rarilabs/ERC721RA/main/assets/erc721ra.png)
 
 ## What is ERC721RA?
 
