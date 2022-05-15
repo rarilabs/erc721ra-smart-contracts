@@ -1,8 +1,8 @@
+# ERC721RA - refundable and gas optimized NFT
 
 
 ![ERC721RA](https://raw.githubusercontent.com/rarilabs/ERC721RA/main/assets/erc721ra-small.png)
 
-# ERC721RA - refundable and gas optimized NFT
 
 ## What is ERC721RA?
 
@@ -12,7 +12,6 @@ For more information please visit [erc721ra.org](https://erc721ra.org). Follow u
 
 **Rari Labs is not liable for any outcome of using ERC721RA**
 
-![ERC721RA](https://raw.githubusercontent.com/rarilabs/ERC721RA/main/assets/erc721ra-banner.png)
 
 ## Get Started
 
@@ -49,3 +48,6 @@ contract Rari is ERC721RA {
 }
 
 ```
+
+
+![ERC721RA](https://raw.githubusercontent.com/rarilabs/ERC721RA/main/assets/erc721ra-banner.png)
