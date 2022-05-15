@@ -2,6 +2,8 @@
 
 # ERC721RA - refundable and gas optimized NFT
 
+![ERC721RA](https://raw.githubusercontent.com/rarilabs/ERC721RA/main/assets/erc721ra.png)
+
 ## What is ERC721RA?
 
 ERC721RA is an improved NFT standard for ERC721 with significant gas saving for multiple minting and refund implementation.
