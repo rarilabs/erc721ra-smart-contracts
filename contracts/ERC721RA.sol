@@ -672,12 +672,14 @@ contract ERC721RA is Context, ERC165, IERC721, IERC721Metadata, Ownable {
 
         _beforeTokenTransfers(_msgSender(), _returnAddress, tokenId, 1);
 
-        uint256 refundAmount = _owners[tokenId].pricePaid;
+            uint256 refundAmount = _owners[tokenId].pricePaid;
 
-        _owners[tokenId].refunded = true;
-        _ownerData[ownerOf(tokenId)].numberRefunded += 1;
-        _refundCounter++;
-
+        unchecked {
+            _owners[tokenId].refunded = true;
+            _ownerData[ownerOf(tokenId)].numberRefunded += 1;
+            _refundCounter++;
+        }
+        
         safeTransferFrom(_msgSender(), _returnAddress, tokenId);
 
         (bool success, ) = to.call{ value: refundAmount }("");

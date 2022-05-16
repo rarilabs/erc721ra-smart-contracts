@@ -16,7 +16,7 @@ async function main() {
   // We get the contract to deploy
 
   const RaNft = await hre.ethers.getContractFactory("ERC721RA_NFT");
-  const raNft = await RaNft.deploy(1660000000, true, "{Some_Address}");
+  const raNft = await RaNft.deploy(1660000000);
   await raNft.deployed();
 
   console.log("RaNft deployed to:", raNft.address);
