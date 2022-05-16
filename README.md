@@ -58,4 +58,17 @@ contract Rari is ERC721RA {
 
 ```
 
+
+
+## Contact
+
+- Will Qian (creator) - [@0xwilxyz](https://twitter.com/0xwilxyz)
+
+**Join ERC721RA as a contributor: [Apply Now](https://forms.gle/32uiJ6d7e8McddaK6)**
+
+
+## License
+
+Distribution under the MIT License. 
+
 ![ERC721RA](https://raw.githubusercontent.com/rarilabs/ERC721RA/main/assets/erc721ra-banner.png)
