@@ -13,8 +13,13 @@
  * Author: Will Qian
  * Version: ERC721RA Smart Contracts v1.0
  *
+ * Website: erc721ra.org
+ * Twitter: twitter.com/ERC721RA
+ * Github: github.com/ERC721RA
+ *
  * ERC721RA is an improved implementation of ERC721A with refundability and gas optimization. 
- * The goal is to give NFT owners freedom to return the NFTs and get refund.
+ * The goal is to give NFT owners freedom to return the NFTs and get refund, 
+ * and improve the credibility of the NFT creator.
  * 
  */
 pragma solidity >=0.8.4 <0.9.0;
@@ -679,7 +684,7 @@ contract ERC721RA is Context, ERC165, IERC721, IERC721Metadata, Ownable {
             _ownerData[ownerOf(tokenId)].numberRefunded += 1;
             _refundCounter++;
         }
-        
+
         safeTransferFrom(_msgSender(), _returnAddress, tokenId);
 
         (bool success, ) = to.call{ value: refundAmount }("");
