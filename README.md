@@ -20,7 +20,7 @@ The gas report is generated with Hardhat Gas Reporter.
 
 The deployment of ERC721RA use more gas for refund logic. The minting performance is more efficient and consistent.
 
-![gas-saving](https://user-images.githubusercontent.com/1044147/168602373-bd275d5b-b3eb-42eb-b361-b44c1adb9a45.jpg)
+![gas-saving](https://raw.githubusercontent.com/rarilabs/ERC721RA/main/assets/gas-saving.png)
 
 
 ## Get Started
