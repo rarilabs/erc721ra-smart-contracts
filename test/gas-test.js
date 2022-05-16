@@ -7,14 +7,6 @@ describe("Test Gas", function () {
     const raNft = await RaNft.deploy(100000000000);
     await raNft.deployed();
 
-    await raNft.mintERC721RA(10);
-  });
-
-  it("Test ERC721A ...", async function () {
-    const ANFT = await ethers.getContractFactory("ERC721A_NFT");
-    const aNft = await ANFT.deploy();
-    await aNft.deployed();
-
-    await aNft.mintERC721A(10);
+    await raNft.mint(10);
   });
 });

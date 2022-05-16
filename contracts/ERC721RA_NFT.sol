@@ -11,7 +11,7 @@ contract ERC721RA_NFT is ERC721RA {
   constructor(uint256 refundEndTime_) 
     ERC721RA("ERC721RA_NFT", "RANFT", refundEndTime_) {}
 
-  function mintERC721RA(uint256 amount) external payable {
+  function mint(uint256 amount) external payable {
     _safeMint(_msgSender(), amount);
   }
 
