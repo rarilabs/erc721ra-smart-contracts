@@ -53,6 +53,12 @@ error TransactToZeroAddress();
 /**
  * @dev Implementation of https://eips.ethereum.org/EIPS/eip-721[ERC721] Non-Fungible Token Standard, including
  * the Metadata extension. Built to optimize for lower gas during batch mints.
+ *
+ * Assumes serials are sequentially minted starting at _startTokenId() (defaults to 0, e.g. 0, 1, 2, 3..).
+ *
+ * Assumes that an owner cannot have more than 2**32 - 1 (max value of uint32 4,294,967,296) of supply.
+ *
+ * Assumes that the maximum token id cannot exceed 2**32 - 1 (max value of uint32 4,294,967,296).
  */
 contract ERC721RA is Context, ERC165, IERC721, IERC721Metadata, Ownable {
     using Address for address;
@@ -140,22 +146,18 @@ contract ERC721RA is Context, ERC165, IERC721, IERC721Metadata, Ownable {
      * @dev Burned tokens are calculated here, use _totalMinted() if you want to count just minted tokens.
      */
     function totalSupply() external view returns (uint256) {
-        // Counter underflow is impossible as _burnCounter cannot be incremented
-        // more than _currentIndex - _startTokenId() times
-        unchecked {
-            return _currentIndex - _burnCounter - _startTokenId();
-        }
+        // ====== Removed original unchecked clause below, to prevent over/underflow ====== //
+        return _currentIndex - _burnCounter - _startTokenId();
+        // ====== Removed original unchecked clause above, to prevent over/underflow ====== //
     }
 
     /**
      * @dev Returns the total amount of tokens minted in the contract.
      */
     function _totalMinted() internal view returns (uint32) {
-        // Counter underflow is impossible as _currentIndex does not decrement,
-        // and it is initialized to _startTokenId()
-        unchecked {
-            return _currentIndex - _startTokenId();
-        }
+        // ====== Removed original unchecked clause below, to prevent over/underflow ====== //
+        return _currentIndex - _startTokenId();
+        // ====== Removed original unchecked clause above, to prevent over/underflow ====== //
     }
 
     /**
@@ -203,27 +205,25 @@ contract ERC721RA is Context, ERC165, IERC721, IERC721Metadata, Ownable {
     function _ownerOf(uint256 tokenId) internal view returns (TokenData memory) {
         uint32 curr = uint32(tokenId);
 
-        unchecked {
-            if (_startTokenId() <= curr && curr < _currentIndex) {
-                TokenData memory ownership = _owners[curr];
-                if (!ownership.burned) {
+        // ====== Removed original unchecked clause below, to prevent over/underflow ====== //
+        if (_startTokenId() <= curr && curr < _currentIndex) {
+            TokenData memory ownership = _owners[curr];
+            if (!ownership.burned) {
+                if (ownership.ownerAddress != address(0)) {
+                    return ownership;
+                }
+                
+                while (true) {
+                    curr--;
+                    ownership = _owners[curr];
                     if (ownership.ownerAddress != address(0)) {
                         return ownership;
-                    }
-                    // Invariant:
-                    // There will always be an ownership that has an address and is not burned
-                    // before an ownership that does not have an address and is not burned.
-                    // Hence, curr will not underflow.
-                    while (true) {
-                        curr--;
-                        ownership = _owners[curr];
-                        if (ownership.ownerAddress != address(0)) {
-                            return ownership;
-                        }
                     }
                 }
             }
         }
+        // ====== Removed original unchecked clause above, to prevent over/underflow ====== //
+
         revert QueryForTokenNotExist();
     }
 
@@ -367,36 +367,34 @@ contract ERC721RA is Context, ERC165, IERC721, IERC721Metadata, Ownable {
 
         _beforeTokenTransfers(address(0), to, startTokenId, amount);
 
-        // Overflows are incredibly unrealistic.
-        // balance or numberMinted overflow if current value of either + amount > 1.8e19 (2**64) - 1
-        // updatedIndex overflows if _currentIndex + amount > 1.2e77 (2**256) - 1
-        unchecked {
-            _ownerData[to].balance += amount;
-            _ownerData[to].numberMinted += amount;
+        // ====== Removed original unchecked clause below, to prevent over/underflow ====== //
+        _ownerData[to].balance += amount;
+        _ownerData[to].numberMinted += amount;
 
-            _owners[startTokenId].ownerAddress = to;
-            _owners[startTokenId].startTimestamp = uint64(block.timestamp);
-            _owners[startTokenId].pricePaid = msg.value / amount;
+        _owners[startTokenId].ownerAddress = to;
+        _owners[startTokenId].startTimestamp = uint64(block.timestamp);
+        _owners[startTokenId].pricePaid = msg.value / amount;
 
-            uint32 updatedIndex = startTokenId;
-            uint32 end = updatedIndex + amount;
+        uint32 updatedIndex = startTokenId;
+        uint32 end = updatedIndex + amount;
 
-            if (to.isContract()) {
-                do {
-                    emit Transfer(address(0), to, updatedIndex);
-                    if (!_checkContractOnERC721Received(address(0), to, updatedIndex++, _data)) {
-                        revert TransferToNonERC721ReceiverImplementer();
-                    }
-                } while (updatedIndex != end);
-                // Reentrancy protection
-                if (_currentIndex != startTokenId) revert();
-            } else {
-                do {
-                    emit Transfer(address(0), to, updatedIndex++);
-                } while (updatedIndex != end);
-            }
-            _currentIndex = updatedIndex;
+        if (to.isContract()) {
+            do {
+                emit Transfer(address(0), to, updatedIndex);
+                if (!_checkContractOnERC721Received(address(0), to, updatedIndex++, _data)) {
+                    revert TransferToNonERC721ReceiverImplementer();
+                }
+            } while (updatedIndex != end);
+            // Reentrancy protection
+            if (_currentIndex != startTokenId) revert();
+        } else {
+            do {
+                emit Transfer(address(0), to, updatedIndex++);
+            } while (updatedIndex != end);
         }
+        _currentIndex = updatedIndex;
+        // ====== Removed original unchecked clause above, to prevent over/underflow ====== //
+
         _afterTokenTransfers(address(0), to, startTokenId, amount);
     }
 
@@ -417,26 +415,24 @@ contract ERC721RA is Context, ERC165, IERC721, IERC721Metadata, Ownable {
 
         _beforeTokenTransfers(address(0), to, startTokenId, amount);
 
-        // Overflows are incredibly unrealistic.
-        // balance or numberMinted overflow if current value of either + amount > 1.8e19 (2**64) - 1
-        // updatedIndex overflows if _currentIndex + amount > 1.2e77 (2**256) - 1
-        unchecked {
-            _ownerData[to].balance += amount;
-            _ownerData[to].numberMinted += amount;
+        // ====== Removed original unchecked clause below, to prevent over/underflow ====== //
+        _ownerData[to].balance += amount;
+        _ownerData[to].numberMinted += amount;
 
-            _owners[startTokenId].ownerAddress = to;
-            _owners[startTokenId].startTimestamp = uint64(block.timestamp);
-            _owners[startTokenId].pricePaid = msg.value / amount;
+        _owners[startTokenId].ownerAddress = to;
+        _owners[startTokenId].startTimestamp = uint64(block.timestamp);
+        _owners[startTokenId].pricePaid = msg.value / amount;
 
-            uint32 updatedIndex = startTokenId;
-            uint32 end = updatedIndex + amount;
+        uint32 updatedIndex = startTokenId;
+        uint32 end = updatedIndex + amount;
 
-            do {
-                emit Transfer(address(0), to, updatedIndex++);
-            } while (updatedIndex != end);
+        do {
+            emit Transfer(address(0), to, updatedIndex++);
+        } while (updatedIndex != end);
 
-            _currentIndex = updatedIndex;
-        }
+        _currentIndex = updatedIndex;
+        // ====== Removed original unchecked clause above, to prevent over/underflow ====== //
+
         _afterTokenTransfers(address(0), to, startTokenId, amount);
     }
 
@@ -467,28 +463,23 @@ contract ERC721RA is Context, ERC165, IERC721, IERC721Metadata, Ownable {
         // Clear approvals from the previous owner
         _approve(address(0), tokenId, from);
 
-        // Underflow of the sender's balance is impossible because we check for
-        // ownership above and the recipient's balance can't realistically overflow.
-        // Counter overflow is incredibly unrealistic as tokenId would have to be 2**256.
-        unchecked {
-            _ownerData[from].balance -= 1;
-            _ownerData[to].balance += 1;
+        _ownerData[from].balance -= 1;
+        _ownerData[to].balance += 1;
 
-            TokenData storage currSlot = _owners[tokenId];
-            currSlot.ownerAddress = to;
-            currSlot.startTimestamp = uint64(block.timestamp);
+        TokenData storage currSlot = _owners[tokenId];
+        currSlot.ownerAddress = to;
+        currSlot.startTimestamp = uint64(block.timestamp);
 
-            // If the ownership slot of tokenId+1 is not explicitly set, that means the transfer initiator owns it.
-            // Set the slot of tokenId+1 explicitly in storage to maintain correctness for ownerOf(tokenId+1) calls.
-            uint256 nextTokenId = tokenId + 1;
-            TokenData storage nextSlot = _owners[nextTokenId];
-            if (nextSlot.ownerAddress == address(0)) {
-                // This will suffice for checking _exists(nextTokenId),
-                // as a burned slot cannot contain the zero address.
-                if (nextTokenId != _currentIndex) {
-                    nextSlot.ownerAddress = from;
-                    nextSlot.startTimestamp = prevOwnership.startTimestamp;
-                }
+        // If the ownership slot of tokenId+1 is not explicitly set, that means the transfer initiator owns it.
+        // Set the slot of tokenId+1 explicitly in storage to maintain correctness for ownerOf(tokenId+1) calls.
+        uint256 nextTokenId = tokenId + 1;
+        TokenData storage nextSlot = _owners[nextTokenId];
+        if (nextSlot.ownerAddress == address(0)) {
+            // This will suffice for checking _exists(nextTokenId),
+            // as a burned slot cannot contain the zero address.
+            if (nextTokenId != _currentIndex) {
+                nextSlot.ownerAddress = from;
+                nextSlot.startTimestamp = prevOwnership.startTimestamp;
             }
         }
 
@@ -531,41 +522,37 @@ contract ERC721RA is Context, ERC165, IERC721, IERC721Metadata, Ownable {
         // Clear approvals from the previous owner
         _approve(address(0), tokenId, from);
 
-        // Underflow of the sender's balance is impossible because we check for
-        // ownership above and the recipient's balance can't realistically overflow.
-        // Counter overflow is incredibly unrealistic as tokenId would have to be 2**256.
-        unchecked {
-            OwnerData storage ownerData = _ownerData[from];
-            ownerData.balance -= 1;
-            ownerData.numberBurned += 1;
+        // ====== Removed original unchecked clause below, to prevent over/underflow ====== //
+        OwnerData storage ownerData = _ownerData[from];
+        ownerData.balance -= 1;
+        ownerData.numberBurned += 1;
 
-            // Keep track of who burned the token, and the timestamp of burning.
-            TokenData storage currSlot = _owners[tokenId];
-            currSlot.ownerAddress = from;
-            currSlot.startTimestamp = uint64(block.timestamp);
-            currSlot.burned = true;
+        // Keep track of who burned the token, and the timestamp of burning.
+        TokenData storage currSlot = _owners[tokenId];
+        currSlot.ownerAddress = from;
+        currSlot.startTimestamp = uint64(block.timestamp);
+        currSlot.burned = true;
 
-            // If the ownership slot of tokenId+1 is not explicitly set, that means the burn initiator owns it.
-            // Set the slot of tokenId+1 explicitly in storage to maintain correctness for ownerOf(tokenId+1) calls.
-            uint256 nextTokenId = tokenId + 1;
-            TokenData storage nextSlot = _owners[nextTokenId];
-            if (nextSlot.ownerAddress == address(0)) {
-                // This will suffice for checking _exists(nextTokenId),
-                // as a burned slot cannot contain the zero address.
-                if (nextTokenId != _currentIndex) {
-                    nextSlot.ownerAddress = from;
-                    nextSlot.startTimestamp = prevOwnership.startTimestamp;
-                }
+        // If the ownership slot of tokenId+1 is not explicitly set, that means the burn initiator owns it.
+        // Set the slot of tokenId+1 explicitly in storage to maintain correctness for ownerOf(tokenId+1) calls.
+        uint256 nextTokenId = tokenId + 1;
+        TokenData storage nextSlot = _owners[nextTokenId];
+        if (nextSlot.ownerAddress == address(0)) {
+            // This will suffice for checking _exists(nextTokenId),
+            // as a burned slot cannot contain the zero address.
+            if (nextTokenId != _currentIndex) {
+                nextSlot.ownerAddress = from;
+                nextSlot.startTimestamp = prevOwnership.startTimestamp;
             }
         }
+        // ====== Removed original unchecked clause above, to prevent over/underflow ====== //
 
         emit Transfer(from, address(0), tokenId);
         _afterTokenTransfers(from, address(0), tokenId, 1);
 
-        // Overflow not possible, as _burnCounter cannot be exceed _currentIndex times.
-        unchecked {
-            _burnCounter++;
-        }
+        // ====== Removed original unchecked clause below, to prevent over/underflow ====== //
+        _burnCounter++;
+        // ====== Removed original unchecked clause above, to prevent over/underflow ====== //
     }
 
     /**
@@ -677,13 +664,13 @@ contract ERC721RA is Context, ERC165, IERC721, IERC721Metadata, Ownable {
 
         _beforeTokenTransfers(_msgSender(), _returnAddress, tokenId, 1);
 
-            uint256 refundAmount = _owners[tokenId].pricePaid;
+        uint256 refundAmount = _owners[tokenId].pricePaid;
 
-        unchecked {
-            _owners[tokenId].refunded = true;
-            _ownerData[ownerOf(tokenId)].numberRefunded += 1;
-            _refundCounter++;
-        }
+        // ====== Removed original unchecked clause below, to prevent over/underflow ====== //
+        _owners[tokenId].refunded = true;
+        _ownerData[ownerOf(tokenId)].numberRefunded += 1;
+        _refundCounter++;
+        // ====== Removed original unchecked clause above, to prevent over/underflow ====== //
 
         safeTransferFrom(_msgSender(), _returnAddress, tokenId);
 
