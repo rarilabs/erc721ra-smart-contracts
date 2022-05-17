@@ -22,4 +22,16 @@ contract ERC721RA_NFT is ERC721RA {
   function withdraw() external onlyOwner{
     _withdraw(_msgSender());
   }
+
+  function tokenRefunded(uint256 tokenId) external view returns(bool) {
+    return _tokenRefunded(tokenId);
+  }
+
+  function pricePaid(uint256 tokenId) external view returns(uint256) {
+    return _pricePaid(tokenId);
+  }
+  
+  function numberRefunded(address owner) external view returns(uint256) {
+    return _numberRefunded(owner);
+  }
 }
