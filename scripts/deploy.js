@@ -15,11 +15,11 @@ async function main() {
 
   // We get the contract to deploy
 
-  const RaNft = await hre.ethers.getContractFactory("ERC721RA_NFT");
-  const raNft = await RaNft.deploy(1660000000);
-  await raNft.deployed();
+  const RA_NFT = await hre.ethers.getContractFactory("ERC721RA_NFT");
+  const contract = await RA_NFT.deploy(1660000000);
+  await contract.deployed();
 
-  console.log("RaNft deployed to:", raNft.address);
+  console.log("RA_NFT deployed to:", contract.address);
 }
 
 // We recommend this pattern to be able to use async/await everywhere
