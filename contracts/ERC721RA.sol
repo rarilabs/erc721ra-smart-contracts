@@ -49,6 +49,7 @@ error RefundNotSucceed();
 error RefundZeroAmount();
 error WithdrawWhenRefundIsActive();
 error WithdrawNotSucceed();
+error WithdrawZeroBalance();
 error TransactToZeroAddress();
 
 /**
@@ -716,7 +717,10 @@ contract ERC721RA is Context, ERC165, IERC721, IERC721Metadata, Ownable {
         if (isRefundActive()) revert WithdrawWhenRefundIsActive();
         if (to == address(0)) revert TransactToZeroAddress();
 
-        (bool success, ) = to.call{ value: address(this).balance }("");
+        uint256 contractBalance = address(this).balance;
+        if (contractBalance == 0) revert WithdrawZeroBalance();
+
+        (bool success, ) = to.call{ value: contractBalance }("");
 
         if (!success) revert WithdrawNotSucceed();
     }
