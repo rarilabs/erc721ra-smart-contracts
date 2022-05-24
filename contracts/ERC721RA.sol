@@ -9,7 +9,7 @@
  *  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
  *
  * SPDX-License-Identifier: MIT
- * Creator: Rari Labs  
+ * Creator: Rari Labs
  * Author: Will Qian
  * Version: ERC721RA Smart Contracts v1.0
  *
@@ -17,10 +17,10 @@
  * Twitter: twitter.com/ERC721RA
  * Github: github.com/ERC721RA
  *
- * ERC721RA is an improved implementation of ERC721A with refundability and gas optimization. 
- * The goal is to give NFT owners freedom to return the NFTs and get refund, 
+ * ERC721RA is an improved implementation of ERC721A with refundability and gas optimization.
+ * The goal is to give NFT owners freedom to return the NFTs and get refund,
  * and improve the credibility of the NFT creator.
- * 
+ *
  */
 pragma solidity >=0.8.4 <0.9.0;
 
@@ -66,19 +66,17 @@ contract ERC721RA is Context, ERC165, IERC721, IERC721Metadata, Ownable {
     using Address for address;
     using Strings for uint256;
 
-    // Token data to track token 
+    // Token data to track token
     struct TokenData {
-        // The address of the owner.
-        address ownerAddress;
-        // Keeps track of the start time of tokenData with minimal overhead for tokenomics.
-        uint64 startTimestamp;
-        // Track refund information of each token. Token can be returned even they're not owned by minter.
-        // Only allowed to refund once, Keeps track of the price paid by minter, price in Wei
-        uint256 pricePaid;
         // Whether the token has been burned.
         bool burned;
         // Whether token has been refunded
         bool refunded;
+        // The address of the owner.
+        address ownerAddress;
+        // Track refund information of each token. Token can be returned even they're not owned by minter.
+        // Only allowed to refund once, Keeps track of the price paid by minter, price in Wei
+        uint256 price;
     }
 
     // Owner data to track against token balance
@@ -94,16 +92,16 @@ contract ERC721RA is Context, ERC165, IERC721, IERC721Metadata, Ownable {
     }
 
     // The tokenId of the next token to be minted.
-    uint32 internal _currentIndex;
+    uint256 internal _currentIndex;
 
     // The number of tokens burned.
-    uint32 internal _burnCounter;
+    uint256 internal _burnCounter;
 
     // The number of tokens refunded.
-    uint32 internal _refundCounter;
+    uint256 internal _refundCounter;
 
     // The refund end timestamp
-    uint64 private _refundEndTime;
+    uint256 private immutable _refundEndTime;
 
     // The return address to transfer token to
     address private _returnAddress;
@@ -127,11 +125,15 @@ contract ERC721RA is Context, ERC165, IERC721, IERC721Metadata, Ownable {
     // Mapping from owner to operator approvals
     mapping(address => mapping(address => bool)) private _operatorApprovals;
 
-    constructor(string memory name_, string memory symbol_, uint256 refundEndTime_) {
+    constructor(
+        string memory name_,
+        string memory symbol_,
+        uint256 refundEndTime_
+    ) {
         _name = name_;
         _symbol = symbol_;
 
-        _refundEndTime = uint64(refundEndTime_);
+        _refundEndTime = refundEndTime_;
         _returnAddress = _msgSender();
 
         _currentIndex = _startTokenId();
@@ -140,7 +142,7 @@ contract ERC721RA is Context, ERC165, IERC721, IERC721Metadata, Ownable {
     /**
      * @dev To change the starting tokenId, please override this function.
      */
-    function _startTokenId() internal view virtual returns (uint32) {
+    function _startTokenId() internal view virtual returns (uint256) {
         return 0;
     }
 
@@ -148,18 +150,22 @@ contract ERC721RA is Context, ERC165, IERC721, IERC721Metadata, Ownable {
      * @dev Burned tokens are calculated here, use _totalMinted() if you want to count just minted tokens.
      */
     function totalSupply() external view returns (uint256) {
-        // ====== Removed original unchecked clause below, to prevent over/underflow ====== //
-        return _currentIndex - _burnCounter - _startTokenId();
-        // ====== Removed original unchecked clause above, to prevent over/underflow ====== //
+        // Impossible to underflow:
+        // _burnCounter cannot be greater than _currentIndex - _startTokenId()
+        unchecked {
+            return _currentIndex - _burnCounter - _startTokenId();
+        }
     }
 
     /**
      * @dev Returns the total amount of tokens minted in the contract.
      */
-    function _totalMinted() internal view returns (uint32) {
-        // ====== Removed original unchecked clause below, to prevent over/underflow ====== //
-        return _currentIndex - _startTokenId();
-        // ====== Removed original unchecked clause above, to prevent over/underflow ====== //
+    function _totalMinted() internal view returns (uint256) {
+        // Impossible to underflow:
+        // _currentIndex is always greater than or equal to_startTokenId()
+        unchecked {
+            return _currentIndex - _startTokenId();
+        }
     }
 
     /**
@@ -196,29 +202,29 @@ contract ERC721RA is Context, ERC165, IERC721, IERC721Metadata, Ownable {
     /**
      * @dev Returns the price paid by minter
      */
-    function _pricePaid(uint256 tokenId) internal view returns (uint256) {
-        return _tokenData[tokenId].pricePaid;
+    function pricePaid(uint256 tokenId) public view returns (uint256) {
+        return _ownerOf(tokenId).price;
     }
 
     /**
      * @dev Returns the number of tokens minted by `owner`.
      */
-    function _numberMinted(address owner) internal view returns (uint32) {
-        return _ownerData[owner].numberMinted;
+    function _numberMinted(address owner) internal view returns (uint256) {
+        return uint256(_ownerData[owner].numberMinted);
     }
 
     /**
      * @dev Returns the number of tokens burned by or on behalf of `owner`.
      */
-    function _numberBurned(address owner) internal view returns (uint32) {
-        return _ownerData[owner].numberBurned;
+    function _numberBurned(address owner) internal view returns (uint256) {
+        return uint256(_ownerData[owner].numberBurned);
     }
 
     /**
      * @dev Returns the auxillary data for `owner`. (e.g. number of whitelist mint slots used).
      */
-    function _numberRefunded(address owner) internal view returns (uint32) {
-        return _ownerData[owner].numberRefunded;
+    function _numberRefunded(address owner) internal view returns (uint256) {
+        return uint256(_ownerData[owner].numberRefunded);
     }
 
     /**
@@ -226,26 +232,34 @@ contract ERC721RA is Context, ERC165, IERC721, IERC721Metadata, Ownable {
      * It gradually moves to O(1) as tokens get transferred around in the collection over time.
      */
     function _ownerOf(uint256 tokenId) internal view returns (TokenData memory) {
-        uint32 curr = uint32(tokenId);
+        uint256 curr = tokenId;
 
-        // ====== Removed original unchecked clause below, to prevent over/underflow ====== //
-        if (_startTokenId() <= curr && curr < _currentIndex) {
-            TokenData memory tokenData = _tokenData[curr];
-            if (!tokenData.burned) {
-                if (tokenData.ownerAddress != address(0)) {
-                    return tokenData;
-                }
-                
-                while (true) {
-                    curr--;
-                    tokenData = _tokenData[curr];
-                    if (tokenData.ownerAddress != address(0)) {
-                        return tokenData;
+        unchecked {
+            if (_startTokenId() <= curr) {
+                if (curr < _currentIndex) {
+                    TokenData memory tokenData = _tokenData[curr];
+
+                    // Check if token is not burnt
+                    if (!tokenData.burned) {
+                        if (tokenData.ownerAddress != address(0)) {
+                            return tokenData;
+                        }
+
+                        // Underlying magic:
+                        // Doesn't explicitly set owner address for consecutive tokens when minting
+                        // Set ownership when checking the data
+                        // Impossible for --curr to be underflow
+                        // Token can never be burnt before minted
+                        while (true) {
+                            tokenData = _tokenData[--curr];
+                            if (tokenData.ownerAddress != address(0)) {
+                                return tokenData;
+                            }
+                        }
                     }
                 }
             }
         }
-        // ====== Removed original unchecked clause above, to prevent over/underflow ====== //
 
         revert QueryForTokenNotExist();
     }
@@ -333,21 +347,34 @@ contract ERC721RA is Context, ERC165, IERC721, IERC721Metadata, Ownable {
     /**
      * @dev See {IERC721-transferFrom}.
      */
-    function transferFrom(address from, address to, uint256 tokenId) public virtual override {
+    function transferFrom(
+        address from,
+        address to,
+        uint256 tokenId
+    ) public virtual override {
         _transfer(from, to, tokenId);
     }
 
     /**
      * @dev See {IERC721-safeTransferFrom}.
      */
-    function safeTransferFrom(address from, address to, uint256 tokenId) public virtual override {
+    function safeTransferFrom(
+        address from,
+        address to,
+        uint256 tokenId
+    ) public virtual override {
         safeTransferFrom(from, to, tokenId, "");
     }
 
     /**
      * @dev See {IERC721-safeTransferFrom}.
      */
-    function safeTransferFrom(address from, address to, uint256 tokenId, bytes memory _data) public virtual override {
+    function safeTransferFrom(
+        address from,
+        address to,
+        uint256 tokenId,
+        bytes memory _data
+    ) public virtual override {
         _transfer(from, to, tokenId);
         if (to.isContract() && !_checkContractOnERC721Received(from, to, tokenId, _data)) {
             revert TransferToNonERC721ReceiverImplementer();
@@ -369,7 +396,7 @@ contract ERC721RA is Context, ERC165, IERC721, IERC721Metadata, Ownable {
      * Equivalent to `_safeMint(to, amount, '')`.
      */
     function _safeMint(address to, uint256 amount) internal {
-        _safeMint(to, uint32(amount), "");
+        _safeMint(to, amount, "");
     }
 
     /**
@@ -377,50 +404,53 @@ contract ERC721RA is Context, ERC165, IERC721, IERC721Metadata, Ownable {
      *
      * Requirements:
      *
-     * - If `to` refers to a smart contract, it must implement 
+     * - If `to` refers to a smart contract, it must implement
      *   {IERC721Receiver-onERC721Received}, which is called for each safe transfer.
      * - `amount` must be greater than 0.
      *
      * Emits a {Transfer} event.
      */
-    function _safeMint(address to, uint32 amount, bytes memory _data) internal {
-        uint32 startTokenId = _currentIndex;
+    function _safeMint(
+        address to,
+        uint256 amount,
+        bytes memory _data
+    ) internal {
+        uint256 startTokenId = _currentIndex;
         if (to == address(0)) revert TransactToZeroAddress();
         if (amount == 0) revert MintZeroAmount();
 
         _beforeTokenTransfers(address(0), to, startTokenId, amount);
 
-        // ====== Removed original unchecked clause below, to prevent over/underflow ====== //
-        _ownerData[to].balance += amount;
-        _ownerData[to].numberMinted += amount;
+        // Incredibly unlikely to overflow:
+        // balance or numberMinted overflow if either + amount > 2**32 - 1
+        // updatedIndex overflow if _currentIndex + amount > 2**256 - 1
+        unchecked {
+            _ownerData[to].balance += uint32(amount);
+            _ownerData[to].numberMinted += uint32(amount);
 
-        uint32 updatedIndex = startTokenId;
-        uint32 end = updatedIndex + amount;
+            uint256 updatedIndex = startTokenId;
+            uint256 end = updatedIndex + amount;
 
-        if (to.isContract()) {
-            do {
-                _tokenData[updatedIndex].ownerAddress = to;
-                _tokenData[updatedIndex].startTimestamp = uint64(block.timestamp);
-                _tokenData[updatedIndex].pricePaid = msg.value / amount;
+            // Underlying magic: doesn't explicitly set owner address for consecutive tokens when minting
+            _tokenData[updatedIndex].ownerAddress = to;
+            _tokenData[updatedIndex].price = msg.value / amount;
 
-                emit Transfer(address(0), to, updatedIndex);
-                if (!_checkContractOnERC721Received(address(0), to, updatedIndex++, _data)) {
-                    revert TransferToNonERC721ReceiverImplementer();
-                }
-            } while (updatedIndex != end);
-            // Reentrancy protection
-            if (_currentIndex != startTokenId) revert();
-        } else {
-            do {
-                _tokenData[updatedIndex].ownerAddress = to;
-                _tokenData[updatedIndex].startTimestamp = uint64(block.timestamp);
-                _tokenData[updatedIndex].pricePaid = msg.value / amount;
-
-                emit Transfer(address(0), to, updatedIndex++);
-            } while (updatedIndex != end);
+            if (to.isContract()) {
+                do {
+                    emit Transfer(address(0), to, updatedIndex);
+                    if (!_checkContractOnERC721Received(address(0), to, updatedIndex++, _data)) {
+                        revert TransferToNonERC721ReceiverImplementer();
+                    }
+                } while (updatedIndex != end);
+                // Reentrancy protection
+                if (_currentIndex != startTokenId) revert();
+            } else {
+                do {
+                    emit Transfer(address(0), to, updatedIndex++);
+                } while (updatedIndex != end);
+            }
+            _currentIndex = updatedIndex;
         }
-        _currentIndex = updatedIndex;
-        // ====== Removed original unchecked clause above, to prevent over/underflow ====== //
 
         _afterTokenTransfers(address(0), to, startTokenId, amount);
     }
@@ -435,30 +465,33 @@ contract ERC721RA is Context, ERC165, IERC721, IERC721Metadata, Ownable {
      *
      * Emits a {Transfer} event.
      */
-    function _mint(address to, uint32 amount) internal {
-        uint32 startTokenId = _currentIndex;
+    function _mint(address to, uint256 amount) internal {
+        uint256 startTokenId = _currentIndex;
         if (to == address(0)) revert TransactToZeroAddress();
         if (amount == 0) revert MintZeroAmount();
 
         _beforeTokenTransfers(address(0), to, startTokenId, amount);
 
-        // ====== Removed original unchecked clause below, to prevent over/underflow ====== //
-        _ownerData[to].balance += amount;
-        _ownerData[to].numberMinted += amount;
+        // Incredibly unlikely to overflow:
+        // balance or numberMinted overflow if either + amount > 2**32 - 1
+        // updatedIndex overflow if _currentIndex + amount > 2**256 - 1
+        unchecked {
+            _ownerData[to].balance += uint32(amount);
+            _ownerData[to].numberMinted += uint32(amount);
 
-        uint32 updatedIndex = startTokenId;
-        uint32 end = updatedIndex + amount;
+            uint256 updatedIndex = startTokenId;
+            uint256 end = updatedIndex + amount;
 
-        do {
+            // Underlying magic: doesn't explicitly set owner address for consecutive tokens when minting
             _tokenData[updatedIndex].ownerAddress = to;
-            _tokenData[updatedIndex].startTimestamp = uint64(block.timestamp);
-            _tokenData[updatedIndex].pricePaid = msg.value / amount;
+            _tokenData[updatedIndex].price = msg.value / amount;
 
-            emit Transfer(address(0), to, updatedIndex++);
-        } while (updatedIndex != end);
+            do {
+                emit Transfer(address(0), to, updatedIndex++);
+            } while (updatedIndex != end);
 
-        _currentIndex = updatedIndex;
-        // ====== Removed original unchecked clause above, to prevent over/underflow ====== //
+            _currentIndex = updatedIndex;
+        }
 
         _afterTokenTransfers(address(0), to, startTokenId, amount);
     }
@@ -473,8 +506,13 @@ contract ERC721RA is Context, ERC165, IERC721, IERC721Metadata, Ownable {
      *
      * Emits a {Transfer} event.
      */
-    function _transfer(address from, address to, uint256 tokenId) private {
+    function _transfer(
+        address from,
+        address to,
+        uint256 tokenId
+    ) private {
         TokenData memory prevTokenData = _ownerOf(tokenId);
+        uint256 priceByToken = pricePaid(tokenId);
 
         if (prevTokenData.ownerAddress != from) revert TransferFromIncorrectOwner();
 
@@ -490,23 +528,31 @@ contract ERC721RA is Context, ERC165, IERC721, IERC721Metadata, Ownable {
         // Clear approvals from the previous owner
         _approve(address(0), tokenId, from);
 
-        _ownerData[from].balance -= 1;
-        _ownerData[to].balance += 1;
+        // Impossible for from address to underflow, or to address to overflow
+        // nextTokenId is incredibly unlikely to overflow
+        unchecked {
+            _ownerData[from].balance -= 1;
+            _ownerData[to].balance += 1;
 
-        TokenData storage currSlot = _tokenData[tokenId];
-        currSlot.ownerAddress = to;
-        currSlot.startTimestamp = uint64(block.timestamp);
+            TokenData storage currSlot = _tokenData[tokenId];
 
-        // If the tokenData slot of tokenId+1 is not explicitly set, that means the transfer initiator owns it.
-        // Set the slot of tokenId+1 explicitly in storage to maintain correctness for ownerOf(tokenId+1) calls.
-        uint256 nextTokenId = tokenId + 1;
-        TokenData storage nextSlot = _tokenData[nextTokenId];
-        if (nextSlot.ownerAddress == address(0)) {
-            // This will suffice for checking _exists(nextTokenId),
-            // as a burned slot cannot contain the zero address.
-            if (nextTokenId != _currentIndex) {
-                nextSlot.ownerAddress = from;
-                nextSlot.startTimestamp = prevTokenData.startTimestamp;
+            // Must update price paid when transfer
+            currSlot.ownerAddress = to;
+            currSlot.price = priceByToken;
+
+            // If the tokenData slot of tokenId+1 is not explicitly set, that means the transfer initiator owns it.
+            // Set the slot of tokenId+1 explicitly in storage to maintain correctness for ownerOf(tokenId+1) calls.
+            uint256 nextTokenId = tokenId + 1;
+
+            TokenData storage nextSlot = _tokenData[nextTokenId];
+            if (nextSlot.ownerAddress == address(0)) {
+                // This will suffice for checking _exists(nextTokenId),
+                // as a burned slot cannot contain the zero address.
+                if (nextTokenId != _currentIndex) {
+                    // Must update price paid for from address which owns the next token
+                    nextSlot.ownerAddress = from;
+                    nextSlot.price = priceByToken;
+                }
             }
         }
 
@@ -549,37 +595,37 @@ contract ERC721RA is Context, ERC165, IERC721, IERC721Metadata, Ownable {
         // Clear approvals from the previous owner
         _approve(address(0), tokenId, from);
 
-        // ====== Removed original unchecked clause below, to prevent over/underflow ====== //
-        OwnerData storage ownerData = _ownerData[from];
-        ownerData.balance -= 1;
-        ownerData.numberBurned += 1;
+        // Impossible for balance to go underflow, or numberBurned to overflow
+        // nextTokenId is icredibly unlikely to overflow
+        unchecked {
+            OwnerData storage ownerData = _ownerData[from];
+            ownerData.balance -= 1;
+            ownerData.numberBurned += 1;
 
-        // Keep track of who burned the token, and the timestamp of burning.
-        TokenData storage currSlot = _tokenData[tokenId];
-        currSlot.ownerAddress = from;
-        currSlot.startTimestamp = uint64(block.timestamp);
-        currSlot.burned = true;
+            // Keep track of who burned the token, and the timestamp of burning.
+            TokenData storage currSlot = _tokenData[tokenId];
+            currSlot.ownerAddress = from;
+            currSlot.burned = true;
 
-        // If the tokenData slot of tokenId+1 is not explicitly set, that means the burn initiator owns it.
-        // Set the slot of tokenId+1 explicitly in storage to maintain correctness for ownerOf(tokenId+1) calls.
-        uint256 nextTokenId = tokenId + 1;
-        TokenData storage nextSlot = _tokenData[nextTokenId];
-        if (nextSlot.ownerAddress == address(0)) {
-            // This will suffice for checking _exists(nextTokenId),
-            // as a burned slot cannot contain the zero address.
-            if (nextTokenId != _currentIndex) {
-                nextSlot.ownerAddress = from;
-                nextSlot.startTimestamp = prevTokenData.startTimestamp;
+            // If the tokenData slot of tokenId+1 is not explicitly set, that means the burn initiator owns it.
+            // Set the slot of tokenId+1 explicitly in storage to maintain correctness for ownerOf(tokenId+1) calls.
+            uint256 nextTokenId = tokenId + 1;
+            TokenData storage nextSlot = _tokenData[nextTokenId];
+            if (nextSlot.ownerAddress == address(0)) {
+                // This will suffice for checking _exists(nextTokenId),
+                // as a burned slot cannot contain the zero address.
+                if (nextTokenId != _currentIndex) {
+                    nextSlot.ownerAddress = from;
+                }
             }
         }
-        // ====== Removed original unchecked clause above, to prevent over/underflow ====== //
 
         emit Transfer(from, address(0), tokenId);
         _afterTokenTransfers(from, address(0), tokenId, 1);
 
-        // ====== Removed original unchecked clause below, to prevent over/underflow ====== //
-        _burnCounter++;
-        // ====== Removed original unchecked clause above, to prevent over/underflow ====== //
+        unchecked {
+            _burnCounter++;
+        }
     }
 
     /**
@@ -587,7 +633,11 @@ contract ERC721RA is Context, ERC165, IERC721, IERC721Metadata, Ownable {
      *
      * emit a {Approval} event.
      */
-    function _approve(address to, uint256 tokenId, address owner) private {
+    function _approve(
+        address to,
+        uint256 tokenId,
+        address owner
+    ) private {
         _tokenApprovals[tokenId] = to;
         emit Approval(owner, to, tokenId);
     }
@@ -601,7 +651,12 @@ contract ERC721RA is Context, ERC165, IERC721, IERC721Metadata, Ownable {
      * @param _data bytes optional data to send along with the call
      * @return bool whether the call correctly returned the expected magic value
      */
-    function _checkContractOnERC721Received(address from, address to, uint256 tokenId, bytes memory _data) private returns (bool) {
+    function _checkContractOnERC721Received(
+        address from,
+        address to,
+        uint256 tokenId,
+        bytes memory _data
+    ) private returns (bool) {
         try IERC721Receiver(to).onERC721Received(_msgSender(), from, tokenId, _data) returns (bytes4 retval) {
             return retval == IERC721Receiver(to).onERC721Received.selector;
         } catch (bytes memory reason) {
@@ -630,7 +685,12 @@ contract ERC721RA is Context, ERC165, IERC721, IERC721Metadata, Ownable {
      * - When `to` is zero, `tokenId` will be burned by `from`.
      * - `from` and `to` are never both zero.
      */
-    function _beforeTokenTransfers(address from, address to, uint256 startTokenId, uint256 amount) internal virtual {}
+    function _beforeTokenTransfers(
+        address from,
+        address to,
+        uint256 startTokenId,
+        uint256 amount
+    ) internal virtual {}
 
     /**
      * @dev Hook that is called after a set of serially-ordered token ids have been transferred. This includes
@@ -648,7 +708,12 @@ contract ERC721RA is Context, ERC165, IERC721, IERC721Metadata, Ownable {
      * - When `to` is zero, `tokenId` has been burned by `from`.
      * - `from` and `to` are never both zero.
      */
-    function _afterTokenTransfers(address from, address to, uint256 startTokenId, uint256 amount) internal virtual {}
+    function _afterTokenTransfers(
+        address from,
+        address to,
+        uint256 startTokenId,
+        uint256 amount
+    ) internal virtual {}
 
     /**
      * @dev Set the return address
@@ -658,7 +723,7 @@ contract ERC721RA is Context, ERC165, IERC721, IERC721Metadata, Ownable {
     }
 
     /**
-     * @dev Get the return address 
+     * @dev Get the return address
      */
     function returnAddress() external view returns (address) {
         return _returnAddress;
@@ -675,11 +740,12 @@ contract ERC721RA is Context, ERC165, IERC721, IERC721Metadata, Ownable {
      * @dev Check if refund has not ended
      */
     function isRefundActive() public view returns (bool) {
-        return _refundEndTime > uint64(block.timestamp);
+        return _refundEndTime > block.timestamp;
     }
 
     /**
      * @dev Refund the current owner of the token
+     * to - the refund payment is paid to
      */
     function _refund(address to, uint256 tokenId) internal {
         if (!isRefundActive()) revert RefundIsNotActive();
@@ -689,26 +755,28 @@ contract ERC721RA is Context, ERC165, IERC721, IERC721Metadata, Ownable {
         if (_tokenData[tokenId].burned) revert RefundTokenHasBeenBurned();
         if (_tokenData[tokenId].refunded) revert RefundHasAlreadyBeenMade();
 
-        uint256 refundAmount = _tokenData[tokenId].pricePaid;
+        uint256 refundAmount = pricePaid(tokenId);
+
         if (refundAmount == 0) revert RefundZeroAmount();
 
         _beforeTokenTransfers(_msgSender(), _returnAddress, tokenId, 1);
 
-        // ====== Removed original unchecked clause below, to prevent over/underflow ====== //
-        _tokenData[tokenId].refunded = true;
-        _ownerData[ownerOf(tokenId)].numberRefunded += 1;
-        _refundCounter++;
-        // ====== Removed original unchecked clause above, to prevent over/underflow ====== //
+        // Refund amount is impossible to overflow
+        unchecked {
+            // No need to change balance here, SafeTransferFrom updates balance
+            _tokenData[tokenId].refunded = true;
+            _ownerData[_msgSender()].numberRefunded += 1;
+            _refundCounter++;
+        }
 
         safeTransferFrom(_msgSender(), _returnAddress, tokenId);
 
-        (bool success, ) = to.call{ value: refundAmount }("");
+        (bool success, ) = to.call{value: refundAmount}("");
         if (!success) revert RefundNotSucceed();
 
         emit Transfer(_msgSender(), _returnAddress, tokenId);
         _afterTokenTransfers(_msgSender(), _returnAddress, tokenId, 1);
     }
-
 
     /**
      * @dev Can only withdraw after when the refund is inactive
@@ -720,9 +788,8 @@ contract ERC721RA is Context, ERC165, IERC721, IERC721Metadata, Ownable {
         uint256 contractBalance = address(this).balance;
         if (contractBalance == 0) revert WithdrawZeroBalance();
 
-        (bool success, ) = to.call{ value: contractBalance }("");
+        (bool success, ) = to.call{value: contractBalance}("");
 
         if (!success) revert WithdrawNotSucceed();
     }
-
 }
